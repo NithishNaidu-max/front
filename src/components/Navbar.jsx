@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, RefreshCw, Server, AlertCircle } from 'lucide-react';
+import { Play, Pause, RefreshCw, Server, AlertCircle, User, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function Navbar({ 
   isSimulating, 
@@ -9,6 +11,8 @@ export default function Navbar({
 }) {
   const [timeStr, setTimeStr] = useState('');
   const [isTicking, setIsTicking] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const updateTime = () => {
@@ -24,6 +28,11 @@ export default function Navbar({
     setIsTicking(true);
     await onTriggerTick();
     setTimeout(() => setIsTicking(false), 500);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
   };
 
   return (
@@ -98,8 +107,44 @@ export default function Navbar({
           fontWeight: 600
         }}>
           <Server size={14} />
-          <span>{isBackendConnected ? 'Spring Boot 8080' : 'Demo Mode (Local)'}</span>
+          <span>{isBackendConnected ? 'Spring Boot 8082' : 'Demo Mode (Active)'}</span>
         </div>
+
+        {/* User Profile Badge */}
+        {user && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            background: 'rgba(30, 41, 59, 0.8)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            padding: '0.25rem 0.65rem',
+            borderRadius: 'var(--radius-sm)'
+          }}>
+            <User size={14} className="text-info" />
+            <span style={{ fontSize: '0.78rem', color: '#FFFFFF', fontWeight: 600 }}>
+              {user.fullName || user.email}
+            </span>
+            <span style={{
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              padding: '0.1rem 0.4rem',
+              borderRadius: '4px',
+              background: user.role === 'ADMIN' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(6, 182, 212, 0.2)',
+              color: user.role === 'ADMIN' ? '#F87171' : '#38BDF8'
+            }}>
+              {user.role}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="btn btn-link p-0 text-muted"
+              title="Sign Out"
+              style={{ display: 'flex', alignItems: 'center' }}
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Simulation Tick Button */}
         <button

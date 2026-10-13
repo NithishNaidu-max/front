@@ -6,6 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 4000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -271,6 +272,174 @@ export const telemetryApi = {
     } catch (err) {
       backendHealthy = false;
       return { running: true, intervalMs: 4000, tickCount: 44, message: 'Manual tick triggered (demo mode)' };
+    }
+  },
+
+  // 11. Authentication
+  async login(email, password) {
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      backendHealthy = true;
+      return res.data;
+    } catch (err) {
+      // Demo fallback if backend is offline
+      if (email.includes('admin')) {
+        return { id: 1, email, fullName: 'System Administrator (Demo)', role: 'ADMIN', status: 'ACTIVE' };
+      }
+      return { id: 2, email, fullName: 'Demo Fleet Operator', role: 'CLIENT', status: 'ACTIVE' };
+    }
+  },
+
+  async register(email, password, fullName) {
+    try {
+      const res = await api.post('/auth/register', { email, password, fullName });
+      backendHealthy = true;
+      return res.data;
+    } catch (err) {
+      return { id: Date.now(), email, fullName, role: 'CLIENT', status: 'ACTIVE' };
+    }
+  },
+
+  async logout() {
+    try {
+      await api.post('/auth/logout');
+    } catch (err) {
+      // Silent catch on logout
+    }
+  },
+
+  async getMe() {
+    try {
+      const res = await api.get('/auth/me');
+      backendHealthy = true;
+      return res.data;
+    } catch (err) {
+      return null;
+    }
+  },
+
+  // 12. Admin Fleet & User Management
+  async getAdminStats() {
+    try {
+      const res = await api.get('/admin/stats');
+      backendHealthy = true;
+      return res.data;
+    } catch (err) {
+      return {
+        totalVehicles: 10,
+        activeVehicles: 8,
+        totalClients: 3,
+        pendingApprovals: 1,
+        averageFleetSpeed: 64.2,
+        peakSpeedToday: 112.5,
+      };
+    }
+  },
+
+  async getAdminFleet() {
+    try {
+      const res = await api.get('/admin/fleet');
+      backendHealthy = true;
+      return res.data;
+    } catch (err) {
+      return MOCK_VEHICLES.map((v, i) => ({
+        id: i + 1,
+        code: v.id,
+        name: v.name,
+        model: v.model,
+        manufacturer: v.name.split(' ')[0],
+        ownerEmail: i < 4 ? 'client1@telemetry.io' : i < 7 ? 'client2@telemetry.io' : 'client3@telemetry.io',
+        ownerName: i < 4 ? 'Client One' : i < 7 ? 'Client Two' : 'Client Three',
+        status: v.status,
+        lastSpeed: v.currentSpeed,
+        lastTemp: v.engineTemperature,
+        lastSeen: v.lastUpdated,
+      }));
+    }
+  },
+
+  async getTopSpeedToday() {
+    try {
+      const res = await api.get('/admin/top-speed-today');
+      backendHealthy = true;
+      return res.data;
+    } catch (err) {
+      return [
+        { vehicleCode: 'VH-103', name: 'Ford F-150 Lightning Pro', peakSpeed: 109.2, timestamp: new Date().toISOString() },
+        { vehicleCode: 'VH-109', name: 'Audi e-tron GT Express', peakSpeed: 96.0, timestamp: new Date().toISOString() },
+        { vehicleCode: 'VH-102', name: 'Volvo FH Electric Heavy', peakSpeed: 84.0, timestamp: new Date().toISOString() },
+      ];
+    }
+  },
+
+  async getClients() {
+    try {
+      const res = await api.get('/admin/clients');
+      backendHealthy = true;
+      return res.data;
+    } catch (err) {
+      return [
+        { id: 2, email: 'client1@telemetry.io', fullName: 'Client One', role: 'CLIENT', status: 'ACTIVE', vehicleCount: 4 },
+        { id: 3, email: 'client2@telemetry.io', fullName: 'Client Two', role: 'CLIENT', status: 'ACTIVE', vehicleCount: 3 },
+        { id: 4, email: 'client3@telemetry.io', fullName: 'Client Three', role: 'CLIENT', status: 'ACTIVE', vehicleCount: 3 },
+      ];
+    }
+  },
+
+  async getPendingClients() {
+    try {
+      const res = await api.get('/admin/clients/pending');
+      backendHealthy = true;
+      return res.data;
+    } catch (err) {
+      return [
+        { id: 5, email: 'operator_pending@telemetry.io', fullName: 'Pending Logistics Operator', role: 'CLIENT', status: 'PENDING', vehicleCount: 0 },
+      ];
+    }
+  },
+
+  async approveClient(clientId) {
+    try {
+      const res = await api.patch(`/admin/clients/${clientId}/approve`);
+      backendHealthy = true;
+      return res.data;
+    } catch (err) {
+      return { id: clientId, status: 'ACTIVE' };
+    }
+  },
+
+  async rejectClient(clientId) {
+    try {
+      const res = await api.patch(`/admin/clients/${clientId}/reject`);
+      backendHealthy = true;
+      return res.data;
+    } catch (err) {
+      return { id: clientId, status: 'REJECTED' };
+    }
+  },
+
+  // 13. Comparison API
+  async compareVehicles(ids, metric = 'speed', from = null, to = null) {
+    try {
+      const params = { ids: Array.isArray(ids) ? ids.join(',') : ids, metric };
+      if (from) params.from = from;
+      if (to) params.to = to;
+      const res = await api.get('/vehicles/compare', { params });
+      backendHealthy = true;
+      return res.data;
+    } catch (err) {
+      // Mock comparison series
+      const now = Date.now();
+      const points = [];
+      for (let i = 0; i < 15; i++) {
+        const time = new Date(now - (15 - i) * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const pt = { time };
+        (Array.isArray(ids) ? ids : [ids]).forEach((id, idx) => {
+          pt[`vehicle_${id}`] = metric === 'speed' ? Math.round(40 + idx * 15 + Math.sin(i + idx) * 20) : Math.round(65 + idx * 8 + Math.cos(i + idx) * 5);
+        });
+        points.push(pt);
+      }
+      return { metric, data: points };
     }
   },
 };

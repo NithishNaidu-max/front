@@ -8,13 +8,19 @@ import {
   Activity, 
   Settings, 
   Radio,
-  Cpu
+  Cpu,
+  Scale,
+  Shield
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar({ activeAlertCount = 0, isSimulating = true }) {
+  const { user } = useAuth();
+
   const navItems = [
     { to: '/', label: 'Fleet Overview', icon: LayoutDashboard },
     { to: '/vehicles', label: 'Vehicle Fleet', icon: Car },
+    { to: '/compare', label: 'Comparison Bench', icon: Scale },
     { 
       to: '/alerts', 
       label: 'Alerts Center', 
@@ -24,7 +30,8 @@ export default function Sidebar({ activeAlertCount = 0, isSimulating = true }) {
     },
     { to: '/history', label: 'Telemetry Logs', icon: History },
     { to: '/engine-health', label: 'Engine Health', icon: Activity },
-    { to: '/settings', label: 'Settings & About', icon: Settings },
+    ...(user?.role === 'ADMIN' ? [{ to: '/admin/analytics', label: 'Admin Console', icon: Shield }] : []),
+    { to: '/settings', label: 'Settings & Viva', icon: Settings },
   ];
 
   return (
